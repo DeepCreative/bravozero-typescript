@@ -64,11 +64,11 @@ export class ConstitutionClient {
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      const errorBody = await response.json().catch(() => ({})) as { message?: string };
+      throw new Error(errorBody.message || `HTTP ${response.status}`);
     }
 
-    return response.json();
+    return response.json() as Promise<T>;
   }
 
   /**
