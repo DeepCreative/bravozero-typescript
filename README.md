@@ -14,22 +14,82 @@ npm install @bravozero/sdk
 import { BravoZeroClient } from '@bravozero/sdk';
 
 const client = new BravoZeroClient({
-  apiKey: 'your-api-key',
-  agentId: 'your-agent-id'
+  apiKey: 'your-api-key'
 });
 
-// Evaluate an action
-const result = await client.constitution.evaluate({
-  action: 'read_file',
-  context: { path: '/src/main.ts' }
+// Check system health
+const health = await client.governance.getHealth();
+console.log(`System: ${health.state}, Omega: ${health.omega_score}`);
+```
+
+## Governance Examples
+
+### Evaluate Actions
+
+```typescript
+// Evaluate an action against the constitution
+const result = await client.governance.evaluate({
+  agentId: 'agent-123',
+  action: 'Generate a summary of the user document',
+  context: { userId: 'user-456' }
 });
 
-if (result.decision === 'permit') {
-  console.log('Action allowed!');
-} else {
-  console.log(`Denied: ${result.reasoning}`);
+switch (result.decision) {
+  case 'allow':
+    console.log('Action allowed!');
+    await performAction();
+    break;
+  case 'deny':
+    console.log(`Denied: ${result.reasoning}`);
+    break;
+  case 'escalate':
+    console.log('Requires human review');
+    await requestApproval(result);
+    break;
 }
+```
 
+### Monitor Omega Score
+
+```typescript
+// Get current system alignment
+const omega = await client.governance.getOmega();
+console.log(`Omega Score: ${omega.omega.toFixed(2)}`);
+console.log(`Trend: ${omega.trend}`);
+
+for (const [name, score] of Object.entries(omega.components)) {
+  console.log(`  ${name}: ${score.toFixed(2)}`);
+}
+```
+
+### Submit Governance Proposals
+
+```typescript
+// Submit a proposal for new rule
+const proposal = await client.governance.submitProposal({
+  title: 'Add data retention rule',
+  description: 'Require agents to respect data retention preferences',
+  category: 'rule'
+});
+
+console.log(`Proposal ${proposal.proposal_id} submitted`);
+console.log(`Voting ends: ${proposal.voting_ends_at}`);
+```
+
+### Check Active Alerts
+
+```typescript
+// Get system alerts
+const { alerts, count } = await client.governance.getAlerts();
+
+for (const alert of alerts) {
+  console.log(`[${alert.severity}] ${alert.title}`);
+}
+```
+
+## Memory Examples
+
+```typescript
 // Store a memory
 const memory = await client.memory.record({
   content: 'User prefers TypeScript',
@@ -46,8 +106,12 @@ const results = await client.memory.query({
 for (const match of results.matches) {
   console.log(`[${match.relevance.toFixed(2)}] ${match.memory.content}`);
 }
+```
 
-// Access VFS
+## VFS Examples
+
+```typescript
+// Access files via VFS
 const files = await client.bridge.listFiles('/project/src');
 const content = await client.bridge.readFile('/project/src/main.ts');
 ```
@@ -57,7 +121,6 @@ const content = await client.bridge.readFile('/project/src/main.ts');
 ```typescript
 const client = new BravoZeroClient({
   apiKey: process.env.BRAVOZERO_API_KEY,
-  agentId: process.env.BRAVOZERO_AGENT_ID,
   baseUrl: 'https://api.bravozero.ai',
   timeout: 30000
 });
@@ -69,16 +132,23 @@ const client = new BravoZeroClient({
 import {
   RateLimitError,
   ConstitutionDeniedError,
-  NotFoundError
+  NotFoundError,
+  ServiceUnavailableError
 } from '@bravozero/sdk';
 
 try {
-  await client.constitution.evaluate({ action: 'dangerous_action' });
+  await client.governance.evaluate({ 
+    agentId: 'agent-123',
+    action: 'dangerous_action' 
+  });
 } catch (error) {
   if (error instanceof RateLimitError) {
     console.log(`Retry after ${error.retryAfter}s`);
   } else if (error instanceof ConstitutionDeniedError) {
     console.log(`Denied: ${error.reasoning}`);
+  } else if (error instanceof ServiceUnavailableError) {
+    // Fallback logic
+    console.log('Governance unavailable');
   }
 }
 ```
@@ -86,7 +156,8 @@ try {
 ## Documentation
 
 - [Quickstart Guide](https://docs.bravozero.ai/getting-started)
-- [API Reference](https://docs.bravozero.ai/api)
+- [Governance Integration](https://docs.bravozero.ai/guides/governance-integration)
+- [API Reference](https://docs.bravozero.ai/api/governance-api)
 
 ## License
 
